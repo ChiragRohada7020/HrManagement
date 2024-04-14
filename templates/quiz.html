@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-4">Quiz</h1>
+        <form id="quiz-form" action="/quiz/{{quiz_id}}" method="post">
+            {% for question in quiz_data %}
+                <div class="mb-8">
+                    <p class="font-bold">{{ question.question }}</p>
+                    <ul class="list-disc ml-8">
+                        {% for option in question.options %}
+                            <li>
+                                <input type="radio" id="{{ option.id }}" name="answer{{ question.id }}" value="{{ option.id }}">
+                                <label for="{{ option.id }}">{{ option.text }}</label>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endfor %}
+            <input type="hidden" name="employee_id" value="123"> <!-- Replace with actual employee ID -->
+            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md mt-4">Submit Quiz</button>
+        </form>
+    </div>
+</body>
+</html>
