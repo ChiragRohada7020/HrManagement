@@ -1351,7 +1351,7 @@ video {
         <ul class="mt-4">
             <span class="text-gray-400 font-bold">ADMIN</span>
             <li class="mb-1 group">
-                <a href="" class="flex font-semibold items-center py-2 px-4 text-gray-900 hover:bg-gray-950 hover:text-gray-100 rounded-md group-[.active]:bg-gray-800 group-[.active]:text-white group-[.selected]:bg-gray-950 group-[.selected]:text-gray-100">
+                <a href="/admin_dashboard" class="flex font-semibold items-center py-2 px-4 text-gray-900 hover:bg-gray-950 hover:text-gray-100 rounded-md group-[.active]:bg-gray-800 group-[.active]:text-white group-[.selected]:bg-gray-950 group-[.selected]:text-gray-100">
                     <i class="ri-home-2-line mr-3 text-lg"></i>
                     <span class="text-sm">Dashboard</span>
                 </a>
@@ -1364,7 +1364,7 @@ video {
                 </a>
                 <ul class="pl-7 mt-2 hidden group-[.selected]:block">
                     <li class="mb-4">
-                        <a href="" class="text-gray-900 text-sm flex items-center hover:text-[#f84525] before:contents-[''] before:w-1 before:h-1 before:rounded-full before:bg-gray-300 before:mr-3">All</a>
+                        <a href="/admin_all_employees" class="text-gray-900 text-sm flex items-center hover:text-[#f84525] before:contents-[''] before:w-1 before:h-1 before:rounded-full before:bg-gray-300 before:mr-3">All Employee</a>
                     </li> 
                     <li class="mb-4">
                         <a href="" class="text-gray-900 text-sm flex items-center hover:text-[#f84525] before:contents-[''] before:w-1 before:h-1 before:rounded-full before:bg-gray-300 before:mr-3">Roles</a>
@@ -1588,19 +1588,17 @@ video {
                             <a href="#" class="flex items-center text-[13px] py-1.5 px-4 text-gray-600 hover:text-[#f84525] hover:bg-gray-50">Settings</a>
                         </li>
                         <li>
-                            <form method="POST" action="">
-                                <a role="menuitem" class="flex items-center text-[13px] py-1.5 px-4 text-gray-600 hover:text-[#f84525] hover:bg-gray-50 cursor-pointer"
-                                    onclick="event.preventDefault();
-                                    this.closest('form').submit();">
+                                <a role="menuitem" href="/logout" class="flex items-center text-[13px] py-1.5 px-4 text-gray-600 hover:text-[#f84525] hover:bg-gray-50 cursor-pointer"
+                                    >
                                     Log Out
                                 </a>
-                            </form>
                         </li>
                     </ul>
                 </li>
             </ul>
         </div>
         <!-- end navbar -->
+        {% block content %}
 
       <!-- Content -->
         <div class="p-6">
@@ -2065,6 +2063,8 @@ video {
             </div>
         </div>
       <!-- End Content -->
+      {% endblock %}
+
     </main>
 
     <script src="https://unpkg.com/@popperjs/core@2"></script>
@@ -2310,10 +2310,10 @@ video {
             }
 
             // Update number of present employees every 30 seconds
-            setInterval(updateNumPresentEmployees, 100000);
+            setInterval(updateNumPresentEmployees, 1000);
 
             // Update number of logged-in employees every 30 seconds
-            setInterval(updateNumLoggedInEmployees, 100000);
+            setInterval(updateNumLoggedInEmployees, 1000);
 
             // Initial update on page load
             updateNumPresentEmployees();

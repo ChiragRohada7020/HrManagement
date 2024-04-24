@@ -1,31 +1,109 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-</head>
-<body class="bg-gray-100">
-    <div class="container mx-auto px-4 py-8">
-        <h1 class="text-3xl font-bold mb-4">Quiz</h1>
-        <form id="quiz-form" action="/quiz/{{quiz_id}}" method="post">
-            {% for question in quiz_data %}
-                <div class="mb-8">
-                    <p class="font-bold">{{ question.question }}</p>
-                    <ul class="list-disc ml-8">
-                        {% for option in question.options %}
-                            <li>
-                                <input type="radio" id="{{ option.id }}" name="answer{{ question.id }}" value="{{ option.id }}">
-                                <label for="{{ option.id }}">{{ option.text }}</label>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            {% endfor %}
-            <input type="hidden" name="employee_id" value="123"> <!-- Replace with actual employee ID -->
-            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md mt-4">Submit Quiz</button>
-        </form>
+{% extends "dashboard.html" %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 bg-stone-200 h-screen flex flex-col justify-center items-center">
+    <h1 class="text-4xl font-bold mb-8">Quiz</h1>
+
+    <!-- Instruction Section -->
+    <div id="ins" class="bg-white p-6 rounded-lg shadow-md mb-8">
+        <h2 class="text-2xl font-semibold mb-4">Instructions:</h2>
+        <ul class="list-disc ml-8">
+            <li class="mb-2">Please read each question carefully before answering.</li>
+            <li class="mb-2">You can only submit the quiz once. Make sure to review your answers before submitting.</li>
+            <li class="mb-2">Ensure you have selected an answer for each question.</li>
+        </ul>
     </div>
-</body>
-</html>
+
+    <!-- Button to start the quiz -->
+    <button id="startQuizBtn" class="bg-blue-500 text-white px-6 py-3 rounded-md mb-8 shadow-md hover:bg-blue-600 transition-colors duration-300 ease-in-out">Start Quiz</button>
+
+    <!-- Toast notification -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white p-4 rounded-lg shadow-md hidden">
+        Test has started!
+    </div>
+
+    <!-- Quiz form (initially hidden) -->
+    <form id="quiz-form" action="/quiz/{{quiz_id}}" method="post" class="hidden bg-white p-8 rounded-lg shadow-md">
+        {% for question in quiz_data %}
+            <div class="mb-6">
+                <p class="text-lg font-semibold">{{ question.question }}</p>
+                <ul class="list-disc ml-8 mt-2">
+                    {% for option in question.options %}
+                        <li class="radio-option flex items-center">
+                            <input type="radio" id="{{ option.id }}" name="answer{{ question.id }}" value="{{ option.id }}" class="mr-2 appearance-none">
+                            <label for="{{ option.id }}" class="text-base">{{ option.text }}</label>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endfor %}
+        <input type="hidden" name="employee_id" value="123"> <!-- Replace with actual employee ID -->
+        <button type="submit" class="bg-blue-500 text-white px-6 py-3 rounded-md mt-4 shadow-md hover:bg-blue-600 transition-colors duration-300 ease-in-out">Submit Quiz</button>
+    </form>
+</div>
+<script>
+    console.log("JavaScript loaded");
+
+    document.addEventListener("DOMContentLoaded", function() {
+        var quizInProgress = false;
+
+        var startQuizBtn = document.getElementById("startQuizBtn");
+        var ins = document.getElementById("ins");
+
+        
+        var submitQuizBtn = document.querySelector("#quiz-form button[type='submit']");
+
+        startQuizBtn.addEventListener("click", function() {
+            quizInProgress = true;
+            startQuizBtn.classList.add("hidden");
+            ins.classList.add("hidden");
+
+
+            var toast = document.getElementById("toast");
+            if (toast) {
+                toast.classList.remove("hidden");
+            }
+
+            var quizForm = document.getElementById("quiz-form");
+            if (quizForm) {
+                quizForm.classList.remove("hidden");
+            }
+
+            setTimeout(function() {
+                if (toast) {
+                    toast.classList.add("hidden");
+                }
+            }, 2000);
+        });
+
+        window.addEventListener("beforeunload", function(event) {
+            if (quizInProgress) {
+                var unansweredQuestions = document.querySelectorAll('input[type="radio"]:not(:checked)');
+                
+                if (unansweredQuestions.length > 0) {
+                    event.preventDefault();
+                    event.returnValue = "You have unanswered quiz questions. Are you sure you want to leave?";
+                }
+            }
+        });
+    });
+</script>
+<style>
+    /* Custom styles to remove dots from radio buttons */
+    input[type="radio"].appearance-none {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        border-radius: 50%;
+        width: 1.2em;
+        height: 1.2em;
+        border: 2px solid #4a5568;
+        outline: none;
+        transition: 0.2s;
+        cursor: pointer;
+    }
+
+    input[type="radio"].appearance-none:checked {
+        background-color: #4a5568;
+    }
+</style>
+{% endblock %}

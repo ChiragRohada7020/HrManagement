@@ -7,6 +7,10 @@ from flask_mail import Message
 from datetime import datetime
 from pymongo.errors import PyMongoError
 import uuid
+from werkzeug.utils import secure_filename
+import os
+
+from flask import send_file
 
 
 
@@ -15,6 +19,7 @@ import uuid
 
 
 app = Flask(__name__)
+
 app.secret_key = 'your_secret_key'
 
 # MongoDB Connection
@@ -23,8 +28,12 @@ db = client['at']
 employee_collection = db['employee']
 attendance_collection = db['attendance']
 
+UPLOAD_FOLDER = 'uploads'
 
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 app.config['MAIL_SERVER'] = 'your_email_server'
 app.config['MAIL_PORT'] = 465  # For SSL
@@ -90,29 +99,26 @@ def dashboard():
         return redirect(url_for('login'))
     
 
-
-@app.route('/mark_attendance', methods=['POST'])
+@app.route('/mark_attendance', methods=['GET'])
 def mark_attendance():
     if 'employee_id' in session:
         employee_id = session['employee_id']
-        # Convert the date to a datetime object with time set to midnight
         today = datetime.combine(datetime.now().date(), datetime.min.time())
-        # Check if the employee has already marked attendance for today
         existing_attendance = attendance_collection.find_one({'employee_id': employee_id, 'date': today})
         if existing_attendance:
             return 'Attendance already marked for today'
         
-        # If attendance has not been marked yet, proceed to mark it
         attendance_data = {
             'employee_id': employee_id,
             'date': today,
             'time_in': datetime.now()
         }
         attendance_collection.insert_one(attendance_data)
-        return redirect(url_for('dashboard'))  # Redirect back to the dashboard after marking attendance
+        return 'Attendance marked successfully'
     else:
-        return redirect(url_for('login'))
+        return 'Not logged in', 403
     
+
 
 @app.route('/admin_dashboard', methods=['GET', 'POST'])
 def admin_dashboard():
@@ -178,31 +184,110 @@ def logout():
         session.pop('employee_id')
     return redirect(url_for('login'))
 
-
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         name = request.form['name']
         email = request.form['email']
         password = request.form['password']
+        
+        # Check if the POST request has the file part
+        if 'resume' not in request.files:
+            return 'No file part', 400
+        
+        resume_file = request.files['resume']
+        
+        # If user does not select file, browser also
+        # submit an empty part without filename
+        if resume_file.filename == '':
+            return 'No selected file', 400
+        
+        # Check if the file is a PDF
+        if not resume_file.filename.endswith('.pdf'):
+            return 'File should be a PDF', 400
+        
         # Generate unique employee ID
         employee_id = generate_employee_id(name, email)
+        
         # Check if the employee ID already exists
         existing_employee = employee_collection.find_one({'employee_id': employee_id})
         if existing_employee:
             return 'Employee ID already exists. Please try again.'
-        # If not, proceed with registration
+        
+        # Save the uploaded resume
+        resume_filename = f"{employee_id}.pdf"
+        resume_path = os.path.join(app.config['UPLOAD_FOLDER'], resume_filename)
+        resume_file.save(resume_path)
+        
+        # Proceed with registration
         employee_data = {
             'employee_id': employee_id,
             'name': name,
             'email': email,
-            'password': password
+            'password': password,
+            'resume_path': resume_path  # Add resume path to employee data
         }
+        
         employee_collection.insert_one(employee_data)
+        
         # send_registration_email(name, email)
+        
         return redirect(url_for('login'))
+    
     return render_template('register.html')
 
+@app.route('/admin_all_employees', methods=['GET'])
+def admin_all_employees():
+    if 'admin' in session:
+        search_query = request.args.get('search_query', '')
+        
+        if search_query:
+            # Search employees by name or employee_id
+            employees = list(employee_collection.find({
+                '$or': [
+                    {'name': {'$regex': search_query, '$options': 'i'}},  # Case-insensitive search by name
+                    {'employee_id': search_query}
+                ]
+            }))
+        else:
+            # Retrieve all employees from the database
+            employees = list(employee_collection.find())
+        
+        return render_template('admin_all_employees.html', employees=employees, search_query=search_query)
+    else:
+        return redirect(url_for('admin_login'))
+
+
+
+@app.route('/resume/<employee_id>', methods=['GET'])
+def download_resume(employee_id):
+    # Find the employee by employee_id to get the resume path
+    employee = employee_collection.find_one({'employee_id': employee_id})
+    
+    if not employee or not employee.get('resume_path'):
+        return 'Resume not found', 404
+    
+    resume_path = employee['resume_path']
+    return send_file(resume_path, as_attachment=True)
+    
+
+@app.route('/admin_details/<employee_id>', methods=['GET'])
+def admin_details(employee_id):
+    if 'admin' in session:
+        # Retrieve employee details
+        employee = employee_collection.find_one({'employee_id': employee_id})
+        if not employee:
+            return 'Employee not found', 404
+        
+        # Retrieve attendance records for the employee
+        attendance_records = list(attendance_collection.find({'employee_id': employee_id}))
+        
+        # Retrieve quiz records for the employee
+        quiz_records = employee.get('quiz_records', [])
+        
+        return render_template('admin_details.html', employee=employee, attendance_records=attendance_records, quiz_records=quiz_records)
+    else:
+        return redirect(url_for('admin_login'))
 
 
 
@@ -261,7 +346,7 @@ def quiz(quiz_id):
 
         employee = employee_collection.find_one({'employee_id': employee_id})
         if employee and any(record['quiz_id'] == quiz_id for record in employee.get('quiz_records', [])):
-            return 'You have already taken this quiz'
+            return render_template("submit.html")
         return render_template('quiz.html', quiz_data=quiz_data[quiz_id],quiz_id=quiz_id)
     elif request.method == 'POST':
         employee_id = session.get('employee_id')

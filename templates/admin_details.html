@@ -1,0 +1,74 @@
+{% extends "admin_dashboard.html" %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 bg-stone-200">
+
+    <h1 class="text-4xl font-extrabold mb-8 text-center">Admin Details</h1>
+
+    <!-- Employee Details -->
+    <div class="bg-white rounded-lg p-6 shadow-md mb-8">
+        <h2 class="text-2xl font-semibold mb-4 border-b pb-2">Employee Details</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <p class="text-lg"><strong>Name:</strong> {{ employee.name }}</p>
+                <p class="text-lg"><strong>Email:</strong> {{ employee.email }}</p>
+                <p class="text-lg"><strong>Employee ID:</strong> {{ employee.employee_id }}</p>
+            </div>
+
+            {% if employee.resume_path %}
+            <div class="text-center">
+                <button class="bg-purple-600 rounded-lg text-xl text-white font-bold p-2 hover:bg-purple-700">
+                    <a href="{{ url_for('download_resume', employee_id=employee.employee_id) }}" target="_blank">Download Resume</a>
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Attendance Records -->
+    <div class="bg-white rounded-lg p-6 shadow-md mb-8">
+        <h2 class="text-2xl font-semibold mb-4 border-b pb-2">Attendance Records</h2>
+        
+        <table class="min-w-full border-collapse border border-gray-300">
+            <thead>
+                <tr class="bg-gray-100">
+                    <th class="border border-gray-300 px-4 py-2">Date</th>
+                    <th class="border border-gray-300 px-4 py-2">Time In</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in attendance_records %}
+                <tr>
+                    <td class="border border-gray-300 px-4 py-2">{{ record.date }}</td>
+                    <td class="border border-gray-300 px-4 py-2">{{ record.time_in.strftime('%H:%M:%S') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Quiz Scores -->
+    <div class="bg-white rounded-lg p-6 shadow-md mb-8">
+        <h2 class="text-2xl font-semibold mb-4 border-b pb-2">Quiz Scores</h2>
+        
+        <table class="min-w-full border-collapse border border-gray-300">
+            <thead>
+                <tr class="bg-gray-100">
+                    <th class="border border-gray-300 px-4 py-2">Quiz ID</th>
+                    <th class="border border-gray-300 px-4 py-2">Score</th>
+                    <th class="border border-gray-300 px-4 py-2">Submission Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in quiz_records %}
+                <tr>
+                    <td class="border border-gray-300 px-4 py-2">{{ record.quiz_id }}</td>
+                    <td class="border border-gray-300 px-4 py-2">{{ record.score }}</td>
+                    <td class="border border-gray-300 px-4 py-2">{{ record.submission_date }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

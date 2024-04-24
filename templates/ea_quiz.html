@@ -1,0 +1,35 @@
+{% extends "dashboard.html" %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 bg-stone-200">
+    <h1 class="text-3xl font-bold mb-4">Admin Dashboard</h1>
+
+    <!-- Search form -->
+    <form method="POST">
+        <input type="text" name="search_query" placeholder="Search by Employee ID or Name">
+        <button type="submit">Search</button>
+    </form>
+
+    <!-- Quiz Scores -->
+    <div class="mb-8">
+        <h2 class="text-2xl font-semibold mb-2">Employees Quiz Scores</h2>
+        <table class="min-w-full bg-white border-collapse border border-gray-300">
+            <thead>
+                <tr>
+                    <th class="border border-gray-300 px-4 py-2">Employee ID</th>
+                    <th class="border border-gray-300 px-4 py-2">Score</th>
+                    <th class="border border-gray-300 px-4 py-2">Submission Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in quiz_records %}
+                <tr>
+                    <td class="border border-gray-300 px-4 py-2">{{ record.quiz_id }}</td>
+                    <td class="border border-gray-300 px-4 py-2">{{ record.score }}</td>
+                    <td class="border border-gray-300 px-4 py-2">{{ record.submission_date }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
