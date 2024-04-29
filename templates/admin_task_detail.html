@@ -1,0 +1,82 @@
+{% extends "admin_dashboard.html" %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 bg-stone-200">
+    <h1 class="text-4xl font-extrabold mb-8 text-center">Employee Task Details</h1>
+
+    <!-- Employee Details -->
+    <div class="bg-white rounded-lg p-6 shadow-md mb-8">
+        <h2 class="text-2xl font-semibold mb-4 border-b pb-2">Employee Details</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <p class="text-lg"><strong>Name:</strong> {{ employee.name }}</p>
+                <p class="text-lg"><strong>Email:</strong> {{ employee.email }}</p>
+                <p class="text-lg"><strong>Employee ID:</strong> {{ employee.employee_id }}</p>
+            </div>
+
+            {% if employee.resume_path %}
+            <div class="text-center">
+                <button class="bg-purple-600 rounded-lg text-xl text-white font-bold p-2 hover:bg-purple-700">
+                    <a href="{{ url_for('download_resume', employee_id=employee.employee_id) }}" target="_blank">Download Resume</a>
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Assign Task Form -->
+    <div class="bg-white rounded-lg p-6 shadow-md mb-8">
+        <h2 class="text-2xl font-semibold mb-4 border-b pb-2">Assign Task</h2>
+        
+        <form action="{{ url_for('assign_task', employee_id=employee.employee_id) }}" method="post" class="flex flex-col gap-4">
+           <div class="flex gap-10">
+            <div class="flex flex-col gap-5">
+                <label for="task_title" class="block text-lg font-semibold">Task Title:</label>
+                <input type="text" id="task_title" name="task_title" class="w-full border-gray-300 border-2 rounded-md  py-1 px-3 focus:outline-none focus:border-indigo-500">
+            </div>
+            <div class="flex flex-col gap-5">
+                <label for="task_description" class="block text-lg font-semibold">Task Description:</label>
+                <input id="task_description" name="task_description" class="w-full border-gray-300 rounded-md border-2 py-1 px-3 focus:outline-none focus:border-indigo-500"></input    >
+            </div>
+            <div>
+                <label for="deadline_date" class="block text-lg font-semibold">Deadline Date:</label>
+                <input type="date" id="deadline_date" name="deadline_date" class="w-full border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:border-indigo-500">
+            </div>
+          
+            <div class="ml-20">
+                <button type="submit" class="bg-blue-500 rounded-lg text-xl text-white font-bold py-2 px-4 hover:bg-blue-600 self-start">Assign Task</button>
+            </div>
+           </div>
+        </form>
+    </div>
+
+    <!-- Employee Tasks -->
+    <div class="bg-white rounded-lg p-6 shadow-md mb-8">
+        <h2 class="text-2xl font-semibold mb-4 border-b pb-2">Employee Tasks</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task Title</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deadline</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completion Percentage</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for task in employee_tasks %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ task.title }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ task.description }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ task.deadline }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ task.completion }}%</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+
+</div>
+{% endblock %}

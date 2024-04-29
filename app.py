@@ -11,6 +11,8 @@ from werkzeug.utils import secure_filename
 import os
 
 from flask import send_file
+from bson import ObjectId  # Import ObjectId for working with MongoDB ObjectIDs
+
 
 
 
@@ -27,6 +29,7 @@ client = MongoClient('mongodb://localhost:27017/')
 db = client['at']
 employee_collection = db['employee']
 attendance_collection = db['attendance']
+task_collection = db['task']
 
 UPLOAD_FOLDER = 'uploads'
 
@@ -56,11 +59,15 @@ def send_registration_email(name, email):
 def generate_employee_id(name, email):
     # Combine name and email
     data = name + email
-    # Hash the combined data
+    # Hash the combined dataSclear
     hashed_data = hashlib.md5(data.encode()).hexdigest()
     # Take the first 6 characters to create a unique ID
     employee_id = hashed_data[:6].upper()  # Convert to uppercase for consistency
     return employee_id
+
+
+
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -85,19 +92,32 @@ def login():
     return render_template('login.html')
 
 
+
+
+
+
 @app.route('/dashboard')
 def dashboard():
     if 'employee_id' in session:
         employee_id = session['employee_id']
         employee = employee_collection.find_one({'employee_id': employee_id})
+        tasks = list(task_collection.find({'employee_id': employee_id}))
+        processed_tasks = []
+        for index, task in enumerate(tasks):
+            task['_id_str'] = str(task['_id'])  # Convert ObjectId to string
+            task['index'] = index  # Add index to identify tasks in the form
+            processed_tasks.append(task)
         # Fetch attendance records for the logged-in employee
         attendance_records = attendance_collection.find({'employee_id': employee_id})
         employee = employee_collection.find_one({'employee_id': employee_id})
         admin_name = employee.get('name', 'Admin')
-        return render_template('dashboard.html', employee=employee, attendance_records=attendance_records,admin_name=admin_name,admin_id=employee_id)
+        return render_template('dashboard.html',tasks=processed_tasks, employee=employee, attendance_records=attendance_records,admin_name=admin_name,admin_id=employee_id)
     else:
         return redirect(url_for('login'))
-    
+
+
+
+
 
 @app.route('/mark_attendance', methods=['GET'])
 def mark_attendance():
@@ -119,7 +139,6 @@ def mark_attendance():
         return 'Not logged in', 403
     
 
-
 @app.route('/admin_dashboard', methods=['GET', 'POST'])
 def admin_dashboard():
     if 'admin' in session:
@@ -131,14 +150,36 @@ def admin_dashboard():
             if employees:
                 employee_id = employees[0]['employee_id']
                 attendance_data = list(attendance_collection.find({'employee_id': employee_id}))
-                return render_template('admin_dashboard.html', attendance_data=attendance_data, search_query=search_query)
+                # Retrieve completion reports for the employee from the task collection
+                completion = list(task_collection.find({'employee_id': employee_id}))
+                # Calculate average completion percentage
+                total_completion_percentage = sum(report.get('completion_percentage', 0) for report in completion)
+                average_completion_percentage = total_completion_percentage / len(completion) if completion else 0
+                return render_template('admin_dashboard.html', attendance_data=attendance_data, search_query=search_query, average_completion_percentage=average_completion_percentage)
             else:
                 return render_template('admin_dashboard.html', message='No employee found for the given query')
         else:
             admin_id = session['admin']
             admin = employee_collection.find_one({'employee_id': admin_id})
             admin_name = admin.get('name', 'Admin')
-            return render_template('admin_dashboard.html',admin_name=admin_name,admin_id=admin_id)
+            # Calculate average completion percentage for all employees
+            all_completion = {}  # Dictionary to store completion reports for all employees
+            for employee in employee_collection.find():
+                employee_id = employee['employee_id']
+                completion = list(task_collection.find({'employee_id': employee_id}))
+                all_completion[employee_id] = completion
+            employee_completion_averages = {}
+            for employee_id, completion in all_completion.items():
+
+                total_completion_percentage = sum(report.get('completion', 0) for report in completion)
+                average_completion_percentage = total_completion_percentage / len(completion) if completion else 0
+                # Retrieve employee name from the database using employee ID
+                
+                print(average_completion_percentage)
+                employee_name = employee_collection.find_one({'employee_id': employee_id}).get('name', 'Unknown')
+                employee_completion_averages[employee_name] = average_completion_percentage
+
+            return render_template('admin_dashboard.html', admin_name=admin_name, admin_id=admin_id, employee_completion_averages=employee_completion_averages)
     else:
         return redirect(url_for('admin_login'))
     
@@ -256,6 +297,29 @@ def admin_all_employees():
         return render_template('admin_all_employees.html', employees=employees, search_query=search_query)
     else:
         return redirect(url_for('admin_login'))
+    
+
+
+@app.route('/admin_all_task', methods=['GET'])
+def admin_all_task():
+    if 'admin' in session:
+        search_query = request.args.get('search_query', '')
+        
+        if search_query:
+            # Search employees by name or employee_id
+            employees = list(employee_collection.find({
+                '$or': [
+                    {'name': {'$regex': search_query, '$options': 'i'}},  # Case-insensitive search by name
+                    {'employee_id': search_query}
+                ]
+            }))
+        else:
+            # Retrieve all employees from the database
+            employees = list(employee_collection.find())
+        
+        return render_template('admin_all_task.html', employees=employees, search_query=search_query)
+    else:
+        return redirect(url_for('admin_login'))
 
 
 
@@ -269,7 +333,63 @@ def download_resume(employee_id):
     
     resume_path = employee['resume_path']
     return send_file(resume_path, as_attachment=True)
+@app.route('/update_task_completion', methods=['POST'])
+def update_task_completion():
+    if 'admin' in session:  # Assuming you're using session for authentication
+        # Loop through form data to extract task IDs and completion percentages
+        for task_index_str, _ in request.form.items():
+            # Extract task index from form data
+            task_index = int(task_index_str.split('_')[-1])
+
+            # Get task ID and completion percentage from form data using the extracted index
+            task_id_str = request.form.get(f'task_id_{task_index}')
+            completion_percentage_str = request.form.get(f'completion_percentage_{task_index}')
+
+            # Convert completion percentage to integer
+            if completion_percentage_str is None:
+                completion_percentage = 0  # Set completion percentage to zero if it's None
+            else:
+                completion_percentage = int(completion_percentage_str)
+
+            # Convert task_id_str to ObjectId
+            try:
+                task_id = ObjectId(task_id_str)
+            except:
+                # Handle invalid ObjectId
+                return 'Invalid task ID', 400
+            
+            # Update the task completion percentage in the database
+            task_collection.update_one({'_id': task_id}, {'$set': {'completion': completion_percentage}})
+        
+        # Redirect to a specific route or page after updating completions
+        return redirect(url_for('dashboard'))  # Redirect to admin dashboard or any other appropriate route
+    else:
+        return redirect(url_for('login'))
+
     
+
+@app.route('/assign_task/<employee_id>', methods=['POST'])
+def assign_task(employee_id):
+    if 'admin' in session:  # Assuming you're using session for authentication
+        # Retrieve task details from the form
+        task_title = request.form.get('task_title')
+        task_description = request.form.get('task_description')
+        deadline_date = request.form.get('deadline_date')
+        
+        # Here you can perform validation on the task details if needed
+        
+        # Insert the task into the database (assuming you have a collection named 'tasks')
+        task_collection.insert_one({
+            'title': task_title,
+            'description': task_description,
+            'deadline': deadline_date,
+            'employee_id': employee_id
+        })
+        
+        # Redirect back to the admin task details page for the selected employee
+        return redirect(url_for('admin_task_details', employee_id=employee_id))
+    else:
+        return redirect(url_for('admin_login')) # Redirect  
 
 @app.route('/admin_details/<employee_id>', methods=['GET'])
 def admin_details(employee_id):
@@ -291,51 +411,97 @@ def admin_details(employee_id):
 
 
 
+@app.route('/admin_task_details/<employee_id>', methods=['GET'])
+def admin_task_details(employee_id):
+    if 'admin' in session:
+        # Retrieve employee details
+        employee = employee_collection.find_one({'employee_id': employee_id})
+        if not employee:
+            return 'Employee not found', 404
+        
+        # Retrieve tasks assigned to the employee
+        employee_tasks = list(task_collection.find({'employee_id': employee_id}))
+        
+        return render_template('admin_task_detail.html', employee=employee, employee_tasks=employee_tasks)
+    else:
+        return redirect(url_for('admin_login'))
+
+
+
 # Define your quiz data
-quiz_data = { "A12":[{
-        'id': 1,
-        'question': 'What is the capital of France?',
-        'options': [
-            {'id': 'paris', 'text': 'Paris'},
-            {'id': 'london', 'text': 'London'},
-            {'id': 'berlin', 'text': 'Berlin'},
-            {'id': 'rome', 'text': 'Rome'}
-        ],
-        'correct_answer': 'paris'
-    },
-    {
-        'id': 2,
-        'question': 'Who wrote "To Kill a Mockingbird"?',
-        'options': [
-            {'id': 'harper-lee', 'text': 'Harper Lee'},
-            {'id': 'mark-twain', 'text': 'Mark Twain'},
-            {'id': 'jane-austen', 'text': 'Jane Austen'},
-            {'id': 'george-orwell', 'text': 'George Orwell'}
-        ],
-        'correct_answer': 'harper-lee'
-    }],
-    "A13":[{
-        'id': 1,
-        'question': 'What is the capital of pachora?',
-        'options': [
-            {'id': 'paris', 'text': 'Paris'},
-            {'id': 'london', 'text': 'London'},
-            {'id': 'berlin', 'text': 'Berlin'},
-            {'id': 'rome', 'text': 'Rome'}
-        ],
-        'correct_answer': 'paris'
-    },
-    {
-        'id': 2,
-        'question': 'Who wrote "To Kill a Mockingbird"?',
-        'options': [
-            {'id': 'harper-lee', 'text': 'Harper Lee'},
-            {'id': 'mark-twain', 'text': 'Mark Twain'},
-            {'id': 'jane-austen', 'text': 'Jane Austen'},
-            {'id': 'george-orwell', 'text': 'George Orwell'}
-        ],
-        'correct_answer': 'harper-lee'
-    }]}
+quiz_data = {
+    "A12": [
+        {
+            'id': 1,
+            'question': 'What is the main characteristic of Python programming language?',
+            'options': [
+                {'id': 'dynamic', 'text': 'Dynamic Typing'},
+                {'id': 'static', 'text': 'Static Typing'},
+                {'id': 'compiled', 'text': 'Compiled Language'},
+                {'id': 'functional', 'text': 'Functional Programming'}
+            ],
+            'correct_answer': 'dynamic'
+        },
+        {
+            'id': 2,
+            'question': 'Which of the following is not a valid Python data type?',
+            'options': [
+                {'id': 'list', 'text': 'List'},
+                {'id': 'dictionary', 'text': 'Dictionary'},
+                {'id': 'tuple', 'text': 'Tuple'},
+                {'id': 'set', 'text': 'Set'}
+            ],
+            'correct_answer': 'dictionary'
+        },
+        {
+            'id': 3,
+            'question': 'What does the "print" function do in Python?',
+            'options': [
+                {'id': 'input', 'text': 'Takes User Input'},
+                {'id': 'output', 'text': 'Displays Output'},
+                {'id': 'calculate', 'text': 'Performs Calculation'},
+                {'id': 'loop', 'text': 'Loops through code'}
+            ],
+            'correct_answer': 'output'
+        }
+    ],
+    "A13": [
+        {
+            'id': 1,
+            'question': 'Which of the following is not a valid C++ data type?',
+            'options': [
+                {'id': 'int', 'text': 'int'},
+                {'id': 'float', 'text': 'float'},
+                {'id': 'char[]', 'text': 'char[]'},
+                {'id': 'real', 'text': 'real'}
+            ],
+            'correct_answer': 'real'
+        },
+        {
+            'id': 2,
+            'question': 'What is the output of the following C++ code?\n\n```\n#include <iostream>\n\nint main() {\n    std::cout << "Hello, World!";\n    return 0;\n}\n```',
+            'options': [
+                {'id': 'Hello, World!', 'text': 'Hello, World!'},
+                {'id': '0', 'text': '0'},
+                {'id': '1', 'text': '1'},
+                {'id': 'error', 'text': 'Compilation Error'}
+            ],
+            'correct_answer': 'Hello, World!'
+        },
+        {
+            'id': 3,
+            'question': 'Which of the following is the correct way to declare a pointer in C++?',
+            'options': [
+                {'id': '*int', 'text': '*int'},
+                {'id': 'int*', 'text': 'int*'},
+                {'id': 'int *', 'text': 'int *'},
+                {'id': 'pointer int', 'text': 'pointer int'}
+            ],
+            'correct_answer': 'int*'
+        }
+    ]
+}
+
 
 
 
